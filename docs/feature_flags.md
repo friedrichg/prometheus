@@ -95,6 +95,12 @@ computed at all.
 
 When enabled, GOMAXPROCS variable is automatically set to match Linux container CPU quota.
 
+## Auto GOMEMLIMIT
+
+`--enable-feature=auto-gomemlimit`
+
+When enabled, GOMEMLIMIT variable is automatically set to match Linux container CPU quota.
+
 ## No default scrape port
 
 `--enable-feature=no-default-scrape-port`

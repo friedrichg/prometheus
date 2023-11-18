@@ -51,6 +51,7 @@ import (
 	"k8s.io/klog"
 	klogv2 "k8s.io/klog/v2"
 
+	"github.com/KimMachineGun/automemlimit/memlimit"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery"
 	"github.com/prometheus/prometheus/discovery/legacymanager"
@@ -154,6 +155,7 @@ type flagConfig struct {
 	enableNewSDManager         bool
 	enablePerStepStats         bool
 	enableAutoGOMAXPROCS       bool
+	enableAutoGOMEMLIMIT       bool
 
 	prometheusURL   string
 	corsRegexString string
@@ -197,6 +199,9 @@ func (c *flagConfig) setFeatureListOptions(logger log.Logger) error {
 			case "auto-gomaxprocs":
 				c.enableAutoGOMAXPROCS = true
 				level.Info(logger).Log("msg", "Automatically set GOMAXPROCS to match Linux container CPU quota")
+			case "auto-gomemlimit":
+				c.enableAutoGOMEMLIMIT = true
+				level.Info(logger).Log("msg", "Automatically set GOMELIMIT to match 90% of Linux container CPU quota")
 			case "no-default-scrape-port":
 				c.scrape.NoDefaultPort = true
 				level.Info(logger).Log("msg", "No default port will be appended to scrape targets' addresses.")
@@ -423,7 +428,7 @@ func main() {
 	a.Flag("scrape.discovery-reload-interval", "Interval used by scrape manager to throttle target groups updates.").
 		Hidden().Default("5s").SetValue(&cfg.scrape.DiscoveryReloadInterval)
 
-	a.Flag("enable-feature", "Comma separated feature names to enable. Valid options: agent, exemplar-storage, expand-external-labels, memory-snapshot-on-shutdown, promql-at-modifier, promql-negative-offset, promql-per-step-stats, promql-experimental-functions, remote-write-receiver (DEPRECATED), extra-scrape-metrics, new-service-discovery-manager, auto-gomaxprocs, no-default-scrape-port, native-histograms, otlp-write-receiver. See https://prometheus.io/docs/prometheus/latest/feature_flags/ for more details.").
+	a.Flag("enable-feature", "Comma separated feature names to enable. Valid options: agent, exemplar-storage, expand-external-labels, memory-snapshot-on-shutdown, promql-at-modifier, promql-negative-offset, promql-per-step-stats, promql-experimental-functions, remote-write-receiver (DEPRECATED), extra-scrape-metrics, new-service-discovery-manager, auto-gomaxprocs, auto-gomemlimit, no-default-scrape-port, native-histograms, otlp-write-receiver. See https://prometheus.io/docs/prometheus/latest/feature_flags/ for more details.").
 		Default("").StringsVar(&cfg.featureList)
 
 	promlogflag.AddFlags(a, &cfg.promlogConfig)
@@ -649,6 +654,10 @@ func main() {
 		if _, err := maxprocs.Set(maxprocs.Logger(l)); err != nil {
 			level.Warn(logger).Log("component", "automaxprocs", "msg", "Failed to set GOMAXPROCS automatically", "err", err)
 		}
+	}
+
+	if cfg.enableAutoGOMEMLIMIT {
+		memlimit.SetGoMemLimitWithEnv()
 	}
 
 	if !agentMode {
